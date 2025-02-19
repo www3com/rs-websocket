@@ -1,18 +1,15 @@
-mod model;
-mod router;
-mod handler;
 
-use axum::{middleware, Router};
+
 use axum::extract::State;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use dotenvy::dotenv;
-use tokio::sync::broadcast;
-use crate::handler::{message_handler, socket_handler};
-use crate::model::message::AppState;
 use std::collections::HashMap;
 use std::sync::Arc;
+use axum::Router;
 use tokio::sync::Mutex;
+use rs_websocket::handler::{message_handler, socket_handler};
+use rs_websocket::model::message::AppState;
 
 #[tokio::main]
 async fn main() {
@@ -22,8 +19,6 @@ async fn main() {
     // initialize tracing
     tracing_subscriber::fmt::init();
 
-    // 创建一个广播信道，用于向所有 WebSocket 客户端发送消息
-    let (tx, _) = broadcast::channel::<String>(100);
     let state = AppState {
         connections: Arc::new(Mutex::new(HashMap::new()))
     };

@@ -2,7 +2,7 @@ use futures::{SinkExt, StreamExt};
 use tokio::sync::mpsc;
 use tracing;
 use crate::model::message::AppState;
-use axum::extract::ws::{Message, Utf8Bytes, WebSocket};
+use axum::extract::ws::{Message,  WebSocket};
 use uuid::Uuid;
 
 /// 处理 WebSocket 连接的逻辑
