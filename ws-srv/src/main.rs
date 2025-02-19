@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use axum::Router;
 use tokio::sync::Mutex;
-use rs_websocket::handler::{message_handler, socket_handler};
-use rs_websocket::model::message::AppState;
+use ws_srv::handler::{message_handler, socket_handler};
+use ws_srv::model::message::AppState;
 
 #[tokio::main]
 async fn main() {
