@@ -1,13 +1,13 @@
-
-
-use axum::extract::State;
+use axum::extract::{ws, State};
+use axum::http::{HeaderMap, Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
+use axum::Router;
 use dotenvy::dotenv;
 use std::collections::HashMap;
 use std::sync::Arc;
-use axum::Router;
 use tokio::sync::Mutex;
+use ws_srv::handler::auth::{extract_token, verify_token};
 use ws_srv::handler::{message_handler, socket_handler};
 use ws_srv::model::message::AppState;
 
@@ -20,7 +20,7 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let state = AppState {
-        connections: Arc::new(Mutex::new(HashMap::new()))
+        connections: Arc::new(Mutex::new(HashMap::new())),
     };
 
     // 构建路由：
@@ -39,8 +39,25 @@ async fn main() {
 
 /// WebSocket 升级处理函数，将连接交由 socket_handler 模块处理
 async fn ws_handler(
-    ws: axum::extract::ws::WebSocketUpgrade,
+    headers: HeaderMap,
+    ws: ws::WebSocketUpgrade,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| socket_handler::handle_socket(socket, state))
+    let token = match extract_token(&headers) {
+        Some(token) => token,
+        None => {
+            return StatusCode::FORBIDDEN.into_response()
+        }
+    };
+    
+    // 验证 token 并获取 user_id
+    let user_id = match verify_token(&token) {
+        Ok(id) => id,
+        Err(_) => {
+            eprintln!("Invalid token: {:?}", token);
+            return (StatusCode::FORBIDDEN, "Invalid token").into_response();
+        }
+    };
+
+    ws.on_upgrade(move |socket| socket_handler::handle_socket(socket, state, user_id))
 }

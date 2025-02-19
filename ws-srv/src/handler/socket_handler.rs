@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use futures::{SinkExt, StreamExt};
 use tokio::sync::mpsc;
 use tracing;
@@ -9,7 +10,7 @@ use uuid::Uuid;
 ///
 /// 该函数拆分了连接为发送端和接收端；同时订阅共享的广播信道，
 /// 当 RESTful 接口发送消息时，会通过该信道接收并将消息发送给当前客户端。
-pub async fn handle_socket(socket: WebSocket, state: AppState) {
+pub async fn handle_socket(socket: WebSocket, state: AppState, user_id: u64) {
     let client_id = Uuid::new_v4().to_string();
 
     println!("New WebSocket connection: {}", client_id);
@@ -23,7 +24,10 @@ pub async fn handle_socket(socket: WebSocket, state: AppState) {
     // 将广播通道存储到 HashMap 中
     {
         let mut connections = state.connections.lock().await;
-        connections.insert(client_id.clone(), broadcast_tx.clone());
+        connections
+            .entry(user_id.clone())
+            .or_insert_with(HashMap::new)
+            .insert(client_id.clone(), broadcast_tx.clone());
     }
 
     // 统一的消息发送任务
@@ -82,7 +86,13 @@ pub async fn handle_socket(socket: WebSocket, state: AppState) {
     // 连接关闭时清理
     {
         let mut connections = state.connections.lock().await;
-        connections.remove(&client_id);
-        tracing::info!("Removed client {} from connections", client_id);
+        if let Some(user_conns) = connections.get_mut(&user_id) {
+            user_conns.remove(&client_id);
+            // 如果用户没有其他连接了，则移除用户记录
+            if user_conns.is_empty() {
+                connections.remove(&user_id);
+            }
+        }
+        tracing::info!("Removed client {} for user {} from connections", client_id, user_id);
     }
 }
